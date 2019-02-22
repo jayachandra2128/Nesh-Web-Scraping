@@ -1,0 +1,247 @@
+from lxml import html
+import requests
+from time import sleep
+import json
+import argparse
+from random import randint
+import re
+from gensim.summarization.summarizer import summarize
+
+def parse_finance_page(ticker):
+	"""
+	Grab financial data from NASDAQ page
+	
+	Args:
+		ticker (str): Stock symbol
+	
+	Returns:
+		dict: Scraped data
+	"""
+	key_stock_dict = {}
+	headers = {
+				"Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+				"Accept-Encoding":"gzip, deflate",
+				"Accept-Language":"en-GB,en;q=0.9,en-US;q=0.8,ml;q=0.7",
+				"Connection":"keep-alive",
+				"Host":"www.nasdaq.com",
+				"Referer":"http://www.nasdaq.com",
+				"Upgrade-Insecure-Requests":"1",
+				"User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.119 Safari/537.36"
+	}
+
+	# Retrying for failed request
+	for retries in range(1):
+		try:	
+			url = "http://www.nasdaq.com/symbol/%s"%(ticker)
+			response = requests.get(url, headers = headers, verify=False)
+			
+			if response.status_code!=200:
+				raise ValueError("Invalid Response Received From Webserver")
+
+			#print("Parsing %s"%(url))
+			# Adding random delay
+			#sleep(randint(1,3))	
+			parser = html.fromstring(response.text)
+			xpath_quote='//div[contains(@class,"floatL marginTB5px")]//div[contains(@class,"qwidget-dollar")]/text()'
+			xpath_head = "//div[contains(@id,'pageheader')]//h1//text()"
+			xpath_key_stock_table = '//div[contains(@class,"overview-results")]//div[contains(@class,"table-table")]/div'
+			xpath_open_price = '//b[contains(text(),"Open Price:")]/following-sibling::span/text()'
+			xpath_open_date = '//b[contains(text(),"Open Date:")]/following-sibling::span/text()'
+			xpath_close_price = '//b[contains(text(),"Close Price:")]/following-sibling::span/text()'
+			xpath_close_date = '//b[contains(text(),"Close Date:")]/following-sibling::span/text()'
+			xpath_key = './/div[@class="table-cell"]/b/text()'
+			xpath_value = './/div[@class="table-cell"]/text()'
+			xpath_trend='//*[contains(@class, "marginLR10px arrow-green")]'
+
+			raw_name = parser.xpath(xpath_head)
+			quote=parser.xpath(xpath_quote)
+			key_stock_table =  parser.xpath(xpath_key_stock_table)
+			raw_open_price = parser.xpath(xpath_open_price)
+			raw_open_date = parser.xpath(xpath_open_date)
+			raw_close_price = parser.xpath(xpath_close_price)
+			raw_close_date = parser.xpath(xpath_close_date)
+			trend=parser.xpath(xpath_trend)
+			
+			if trend:
+				trend="Green(Upward)"
+			else:
+				trend="Red(Downward)"
+
+			quote=quote[0].strip() if quote else None
+			company_name = raw_name[0].replace("Common Stock Quote & Summary Data","").strip() if raw_name else ''
+			open_price =raw_open_price[0].strip() if raw_open_price else None
+			open_date = raw_open_date[0].strip() if raw_open_date else None
+			close_price = raw_close_price[0].strip() if raw_close_price else None
+			close_date = raw_close_date[0].strip() if raw_close_date else None
+
+			# Grabbing and cleaning keystock data
+			for i in key_stock_table:
+				key = i.xpath(xpath_key)
+				value = i.xpath(xpath_value)
+
+				key = ''.join(key).strip() 
+				value = ' '.join(''.join(value).split()) 
+				key_stock_dict[key] = value
+
+			# Scraping call transactions
+			url = "http://www.nasdaq.com/symbol/%s/call-transcripts"%(ticker)
+			response = requests.get(url, headers = headers, verify=False)
+			
+			#print("Parsing %s"%(url))
+			# Adding random delay
+			parser = html.fromstring(response.text)
+			xpath_links = "//span[@class='fontS14px']/a/@href"
+			links=parser.xpath(xpath_links)
+			link=("http://www.nasdaq.com"+links[0])
+			
+			url1 = link
+			response1 = requests.get(url1, headers = headers, verify=False)
+			#print("Parsing %s"%(url1))
+			#sleep(randint(1,3))	
+			parser = html.fromstring(response1.text)
+			xpath_date = "//div[@id='SAarticle']/p/text()"
+			date=parser.xpath(xpath_date)
+			date=(date[2])
+			#print(date)
+			
+			#xpath_participants = ".//div[@id='SAarticle']//*"
+			ps = parser.findall(".//div[@id='SAarticle']//*")
+			arr=[]
+			for p in ps:
+				text = p.text
+				if text:
+					arr.append(text)
+				
+				
+			arr1=",".join(arr)
+			#print(arr1)
+			if(ticker=="eog"):
+				x=re.search("(?<=Executives,)(.*)(?=Presentation)", arr1)
+				
+			elif(ticker=="apa"):
+				x=re.search("(?<=Executives,)(.*)(?=Presentation)", arr1)
+				
+			else:
+				x = re.search("(?<=Company Participants,)(.*)(?=,Presentation)", arr1)	
+			x1=x.group()
+			#print(x1)
+			
+			
+			#Scraping financial numbers
+			if(ticker=="pxd"):
+				lastRevenue="No data available on NASDAQ"
+				cashflow="No data available on NASDAQ"
+			elif(ticker=="cop"):
+				lastRevenue="No data available on NASDAQ"
+				cashflow="No data available on NASDAQ"
+			else:
+			
+				url = "https://www.nasdaq.com/symbol/%s/financials?query=income-statement"%(ticker)
+				response = requests.get(url, headers = headers, verify=False)
+				
+				#print("Parsing %s"%(url))
+				# Adding random delay
+				#sleep(randint(1,3))	
+				parser = html.fromstring(response.text)
+				
+				xpath_revenue = "//div[@class='genTable']/table/tr/td/node()"
+				
+				lastRevenue=parser.xpath(xpath_revenue)
+				#print(lastRevenue[1])
+				lastRevenue=lastRevenue[1]
+				
+				url = "https://www.nasdaq.com/symbol/%s/financials?query=cash-flow"%(ticker)
+				response = requests.get(url, headers = headers, verify=False)
+				
+				#print("Parsing %s"%(url))
+				# Adding random delay
+				#sleep(randint(1,3))	
+				parser = html.fromstring(response.text)
+				
+				xpath_cashflow = "//tr[@class='net']/td/node()"
+				
+				cashflow=parser.xpath(xpath_cashflow)
+				#print("cashflow:",cashflow[-4])
+				cashflow=cashflow[-4]
+			
+			
+			
+			headers = {
+				"Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+				"Accept-Encoding":"gzip, deflate",
+				"Accept-Language":"en-GB,en;q=0.9,en-US;q=0.8,ml;q=0.7",
+				"Connection":"keep-alive",
+				"Host":"www.fool.com",
+				"Referer":"https://www.fool.com/quote/",
+				"Upgrade-Insecure-Requests":"1",
+				"User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.119 Safari/537.36"
+	        }
+			
+			
+			# Scraping articles 
+			url = "https://www.fool.com/quote/%s"%(ticker)
+			response = requests.get(url, headers = headers, verify=False)
+			
+			#print("Parsing %s"%(url))
+			# Adding random delay
+			#sleep(randint(1,3))	
+			parser = html.fromstring(response.text)
+			
+			xpath_articles = "//div[@class='article-container']/a/text()"
+			xpath_links = "//a[@class='article-link']/@href"
+			articles=parser.xpath(xpath_articles)
+			links=parser.xpath(xpath_links)
+			links = [s for s in links if "transcripts" not in s]
+			articles = [s for s in articles if "Transcript" not in s]
+			#print(links)
+			#print(articles)
+			summaries=[]
+			
+			for i in range(3):
+				url=links[i]
+				response = requests.get(url, headers = headers, verify=False)
+				#sleep(randint(1,3))	
+				#print(url)
+				parser = html.fromstring(response.text)
+				xpath_article="//span[@class='article-content']/p/text()"
+				article=parser.xpath(xpath_article)
+				#print(article)
+				article=" ".join(article)
+				summaries.append(summarize(article))
+				
+			
+			nasdaq_data = {
+
+							"company_name":company_name,
+							"ticker":ticker,
+							"url":url,
+							"quote":quote,
+							"trend":trend,
+							"open price":open_price,
+							"open_date":open_date,
+							"close_price":close_price,
+							"close_date":close_date,
+							"key_stock_data":key_stock_dict,
+							"date":date,
+							"participants":x1,
+							"articles":articles,
+							"links":links,
+							"lastRevenue":lastRevenue,
+							"cashflow":cashflow,
+							"summaries":summaries
+			}
+			return nasdaq_data
+
+		except Exception as e:
+			print("Failed to process the request, Exception:%s"%(e))
+
+if __name__=="__main__":
+
+	argparser = argparse.ArgumentParser()
+	argparser.add_argument('ticker',help = 'Company stock symbol')
+	args = argparser.parse_args()
+	ticker = args.ticker
+	scraped_data = parse_finance_page(ticker)
+
+	with open('summary.json','w') as fp:
+		json.dump(scraped_data,fp,indent = 4,ensure_ascii=False)

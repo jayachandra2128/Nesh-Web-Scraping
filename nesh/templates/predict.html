@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title></title>
+	<link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='styles/mainpage1.css') }}">
+	
+</head>
+  </head>
+  <body>
+	<h2>Company: {{companyName}}</h2>
+	<p class="main">1. Stocks Summary</p>
+	<p><span style="color: blue">Last Stock Price: </span>{{quote}}</p>
+	<p><span style="color: blue">Stock Price Trend: </span>{{trend}}</p>
+	<br>
+	<br>
+	<table>
+	<p class="main">2. News Articles published about {{text}} </p>
+	<tr>
+		<th><span style="color: blue">Article Link</span></th>
+		<th><span style="color: blue">Sentiment</span></th>
+		<th><span style="color: blue">Article Summary</span></th>
+	</tr>
+{% for i in articles %}
+<tr>
+    <td><a href="{{ links[loop.index0] }}">{{ i }}</a></td>
+	<td>{{sentiment[loop.index0]}}</td>
+	<td>{{summaries[loop.index0]}}</td>
+{% endfor %}
+</tr>
+</table>
+	<br>
+	<br>
+	<p class="main">3. Earnings Call Transcript</p>
+	<p><span style="color: blue">Date: </span>{{date}}</p>
+	<p><span style="color: blue">Participants: </span>{{participants}}</p>
+	<br>
+	<br>
+	<p class="main">4. Financial Numbers</p>
+	<p><span style="color: blue">Market Cap: </span>$ {{stockData["Market Cap"]}}</p>
+	<p><span style="color: blue">Net Cash Flow(2018 or 2017). Based on Nasdaq updated data: </span>{{cashflow}}</p>
+	<p><span style="color: blue">Last Total Revenue(2018 or 2017). Based on Nasdaq updated data: </span>{{lastRevenue}}</p>
+	<p><span style="color: blue">1 Year Target: </span>$ {{stockData["1 Year Target"]}}</p>
+	<p><span style="color: blue">Share Volume: </span>$ {{stockData["Share Volume"]}}</p>
+	<p><span style="color: blue">Current Yield: </span>$ {{stockData["Current Yield"]}}</p>
+	<p><span style="color: blue">Today's High / Low: </span>{{stockData["Today's High / Low"]}}</p>
+	<p><span style="color: blue">Earnings Per Share (EPS): </span>{{stockData["Earnings Per Share (EPS)"]}}</p>
+  </body>
+</html>
