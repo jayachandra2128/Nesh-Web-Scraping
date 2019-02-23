@@ -14,12 +14,19 @@ Insights that are included in this application are:
 Nesh - Smart Assistant for Oil and Gas
 
 ## Installing dependencies - Please install all required libraries before running
+
 pip install gensim
+
 pip install flask
+
 pip install numpy
+
 pip install pprintpp
+
 pip install Flask-Bootstrap
+
 pip install textblob
+
 pip install vaderSentiment
 
 ## Running the application
