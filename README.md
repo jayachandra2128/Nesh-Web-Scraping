@@ -30,7 +30,9 @@ pip install textblob
 pip install vaderSentiment
 
 ## Running the application
-1) Once after installing python version 3 and flask, download the folder nesh from above.
+1) Once after installing python version 3,flask and other dependencies please download the folder nesh from above.
 2) Open cmd and change current directory to nesh folder which contains main.py file.
 3) Run python main.py in cmd and there runs the amazing app on your local host which is smarter in helping you out.
+
+#### Note install all the required dependencies if i missed any. 
 
